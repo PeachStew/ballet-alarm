@@ -48,7 +48,7 @@ def fetch_national_posts():
 
 def fetch_universal_posts():
     site = SITES["universal"]
-    resp = requests.get(site["url"], headers=HEADERS, timeout=15)
+    resp = requests.get(site["url"], headers=HEADERS, timeout=15, verify=False)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
 
