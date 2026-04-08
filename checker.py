@@ -1,7 +1,10 @@
 import os
 import json
+import warnings
 import requests
 from bs4 import BeautifulSoup
+
+warnings.filterwarnings("ignore", message="Unverified HTTPS request")
 
 TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
@@ -26,7 +29,8 @@ SITES = {
 
 def fetch_national_posts():
     site = SITES["national"]
-    resp = requests.get(site["url"], headers=HEADERS, timeout=15)
+    # 국립발레단 사이트는 비표준 SSL 인증서 사용으로 verify=False 필요
+    resp = requests.get(site["url"], headers=HEADERS, timeout=15, verify=False)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
 
