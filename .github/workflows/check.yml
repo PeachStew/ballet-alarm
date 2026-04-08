@@ -1,0 +1,38 @@
+name: 국립발레단 공지 모니터링
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # 30분마다 실행
+  workflow_dispatch:          # 수동 실행 버튼
+
+permissions:
+  contents: write             # last_known.json 커밋용
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 의존성 설치
+        run: pip install requests beautifulsoup4
+
+      - name: 공지 확인 및 알림
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python checker.py
+
+      - name: 상태 파일 저장 (변경 시)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add last_known.json
+          git diff --staged --quiet || git commit -m "chore: 공지 상태 업데이트"
+          git push
