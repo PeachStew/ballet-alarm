@@ -24,10 +24,19 @@ jobs:
       - name: 의존성 설치
         run: pip install requests beautifulsoup4
 
+      - name: 알림 모드 설정
+        run: |
+          if [ "${{ github.event.schedule }}" = "0 23 * * *" ]; then
+            echo "NOTIFY_IF_EMPTY=true" >> $GITHUB_ENV
+          else
+            echo "NOTIFY_IF_EMPTY=false" >> $GITHUB_ENV
+          fi
+
       - name: 공지 확인 및 알림
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NOTIFY_IF_EMPTY: ${{ env.NOTIFY_IF_EMPTY }}
         run: python checker.py
 
       - name: 상태 파일 저장 (변경 시)

@@ -100,19 +100,20 @@ def build_message(site_name, post):
 
 
 def check_site(site_key, fetch_fn, state):
+    """새 글이 있으면 True, 없으면 False 반환"""
     site_name = SITES[site_key]["name"]
     posts = fetch_fn()
 
     if not posts:
         print(f"[{site_name}] 게시글을 찾지 못했습니다.")
-        return
+        return False
 
     known_ids = set(state.get(site_key, {}).get("known_ids", []))
 
     if not known_ids:
         state[site_key] = {"known_ids": [p["id"] for p in posts]}
         print(f"[{site_name}] 초기화 완료. {len(posts)}개 저장.")
-        return
+        return False
 
     new_posts = [p for p in posts if p["id"] not in known_ids]
 
@@ -122,15 +123,23 @@ def check_site(site_key, fetch_fn, state):
             send_telegram(msg)
             print(f"[{site_name}] 알림 전송: {post['title']}")
         state[site_key] = {"known_ids": [p["id"] for p in posts]}
-    else:
-        print(f"[{site_name}] 새 게시글 없음.")
+        return True
+
+    print(f"[{site_name}] 새 게시글 없음.")
+    return False
 
 
 def main():
     state = load_state()
-    check_site("national", fetch_national_posts, state)
-    check_site("universal", fetch_universal_posts, state)
+    notify_if_empty = os.environ.get("NOTIFY_IF_EMPTY", "false").lower() == "true"
+
+    found_new = False
+    found_new |= check_site("national", fetch_national_posts, state)
+    found_new |= check_site("universal", fetch_universal_posts, state)
     save_state(state)
+
+    if not found_new and notify_if_empty:
+        send_telegram("🔍 새로운 공지사항이 없습니다.")
 
 
 if __name__ == "__main__":
