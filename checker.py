@@ -6,16 +6,27 @@ from bs4 import BeautifulSoup
 TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 STATE_FILE = "last_known.json"
-BASE_URL = "https://www.korean-national-ballet.kr"
-LIST_URL = f"{BASE_URL}/ko/news/notice/list"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
 }
 
+SITES = {
+    "national": {
+        "name": "국립발레단",
+        "url": "https://www.korean-national-ballet.kr/ko/news/notice/list",
+        "base_url": "https://www.korean-national-ballet.kr",
+    },
+    "universal": {
+        "name": "유니버설발레단",
+        "url": "https://www.universalballet.com/kr/bbs/board.php?bo_table=notice",
+    },
+}
 
-def fetch_posts():
-    resp = requests.get(LIST_URL, headers=HEADERS, timeout=15)
+
+def fetch_national_posts():
+    site = SITES["national"]
+    resp = requests.get(site["url"], headers=HEADERS, timeout=15)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
 
@@ -26,9 +37,26 @@ def fetch_posts():
         if not title_tag:
             continue
         title = title_tag.get_text(strip=True)
-        url = f"{BASE_URL}/ko/news/notice/view?id={post_id}"
+        url = f"{site['base_url']}/ko/news/notice/view?id={post_id}"
         posts.append({"id": post_id, "title": title, "url": url})
+    return posts
 
+
+def fetch_universal_posts():
+    site = SITES["universal"]
+    resp = requests.get(site["url"], headers=HEADERS, timeout=15)
+    resp.raise_for_status()
+    soup = BeautifulSoup(resp.text, "html.parser")
+
+    posts = []
+    for row in soup.select("#bo_list tbody tr"):
+        a = row.select_one("td.td_subject a")
+        if not a:
+            continue
+        title = a.get_text(strip=True)
+        href = a["href"]
+        post_id = href.split("wr_id=")[-1]
+        posts.append({"id": post_id, "title": title, "url": href})
     return posts
 
 
@@ -36,7 +64,7 @@ def load_state():
     if os.path.exists(STATE_FILE):
         with open(STATE_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
-    return {"known_ids": []}
+    return {}
 
 
 def save_state(state):
@@ -56,39 +84,53 @@ def send_telegram(text):
     resp.raise_for_status()
 
 
-def main():
-    posts = fetch_posts()
+def build_message(site_name, post):
+    title = post["title"]
+    url = post["url"]
+
+    # 제목에 "티켓" 포함 시 클릭 가능한 하이퍼링크로 표시
+    if "티켓" in title:
+        title_line = f'🎟 <a href="{url}">{title}</a>'
+        link_line = ""
+    else:
+        title_line = f"📌 {title}"
+        link_line = f'\n🔗 <a href="{url}">바로가기</a>'
+
+    return f"📢 <b>{site_name} 새 공지</b>\n\n{title_line}{link_line}"
+
+
+def check_site(site_key, fetch_fn, state):
+    site_name = SITES[site_key]["name"]
+    posts = fetch_fn()
+
     if not posts:
-        print("게시글을 찾지 못했습니다.")
+        print(f"[{site_name}] 게시글을 찾지 못했습니다.")
         return
 
-    state = load_state()
-    known_ids = set(state.get("known_ids", []))
+    known_ids = set(state.get(site_key, {}).get("known_ids", []))
 
-    # 처음 실행 시: 현재 목록 저장만 하고 알림 없음
     if not known_ids:
-        state["known_ids"] = [p["id"] for p in posts]
-        save_state(state)
-        print(f"초기화 완료. 현재 게시글 {len(posts)}개 저장.")
+        state[site_key] = {"known_ids": [p["id"] for p in posts]}
+        print(f"[{site_name}] 초기화 완료. {len(posts)}개 저장.")
         return
 
     new_posts = [p for p in posts if p["id"] not in known_ids]
 
     if new_posts:
-        for post in reversed(new_posts):  # 오래된 것부터 전송
-            msg = (
-                f"📢 <b>국립발레단 새 공지</b>\n\n"
-                f"📌 {post['title']}\n"
-                f"🔗 <a href=\"{post['url']}\">바로가기</a>"
-            )
+        for post in reversed(new_posts):
+            msg = build_message(site_name, post)
             send_telegram(msg)
-            print(f"알림 전송: {post['title']}")
-
-        # 전체 목록 갱신
-        state["known_ids"] = [p["id"] for p in posts]
-        save_state(state)
+            print(f"[{site_name}] 알림 전송: {post['title']}")
+        state[site_key] = {"known_ids": [p["id"] for p in posts]}
     else:
-        print("새 게시글 없음.")
+        print(f"[{site_name}] 새 게시글 없음.")
+
+
+def main():
+    state = load_state()
+    check_site("national", fetch_national_posts, state)
+    check_site("universal", fetch_universal_posts, state)
+    save_state(state)
 
 
 if __name__ == "__main__":
