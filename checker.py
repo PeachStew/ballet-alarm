@@ -135,14 +135,13 @@ def check_site(site_key, fetch_fn, state):
 
 def main():
     state = load_state()
-    notify_if_empty = os.environ.get("NOTIFY_IF_EMPTY", "false").lower() == "true"
 
     found_new = False
     found_new |= check_site("national", fetch_national_posts, state)
     found_new |= check_site("universal", fetch_universal_posts, state)
     save_state(state)
 
-    if not found_new and notify_if_empty:
+    if not found_new:
         send_telegram("🔍 새로운 공지사항이 없습니다.")
 
 
