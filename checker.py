@@ -1,5 +1,6 @@
 import os
 import json
+import html
 import warnings
 import requests
 from bs4 import BeautifulSoup
@@ -89,7 +90,7 @@ def send_telegram(text):
 
 
 def build_message(site_name, post):
-    title = post["title"]
+    title = html.escape(post["title"])
     url = post["url"]
 
     # 제목에 "티켓" 포함 시 클릭 가능한 하이퍼링크로 표시
