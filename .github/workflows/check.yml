@@ -2,8 +2,9 @@ name: 발레단 공지 모니터링
 
 on:
   schedule:
-    - cron: "*/30 * * * *"  # 30분마다 실행
-  workflow_dispatch:         # 수동 실행 버튼
+    - cron: "0 0 * * *"    # 한국시간 오전 9시 (UTC+9 → UTC 00:00)
+    - cron: "0 9 * * *"    # 한국시간 오후 6시 (UTC+9 → UTC 09:00)
+  workflow_dispatch:        # 수동 실행 버튼
 
 permissions:
   contents: write

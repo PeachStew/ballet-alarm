@@ -106,7 +106,11 @@ def build_message(site_name, post):
 def check_site(site_key, fetch_fn, state):
     """새 글이 있으면 True, 없으면 False 반환"""
     site_name = SITES[site_key]["name"]
-    posts = fetch_fn()
+    try:
+        posts = fetch_fn()
+    except Exception as e:
+        print(f"[{site_name}] 사이트 조회 실패: {e}")
+        return False
 
     if not posts:
         print(f"[{site_name}] 게시글을 찾지 못했습니다.")
