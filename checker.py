@@ -146,9 +146,6 @@ def main():
     found_new |= check_site("universal", fetch_universal_posts, state)
     save_state(state)
 
-    if not found_new:
-        send_telegram("🔍 새로운 공지사항이 없습니다.")
-
 
 if __name__ == "__main__":
     main()
